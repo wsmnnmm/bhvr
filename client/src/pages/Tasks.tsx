@@ -9,8 +9,10 @@ import {
   Select,
   Space,
   Table,
+  Popconfirm,
   message,
 } from "antd";
+import { api } from "../utils/request";
 
 const SERVER_URL = import.meta.env.VITE_SERVER_URL || "http://localhost:3000";
 type Task = import("shared").Task;
@@ -29,10 +31,8 @@ export default function Tasks() {
     params.set("scope", scope);
     if (completed !== "all") params.set("completed", completed);
     if (q) params.set("q", q);
-    const res = await fetch(`${SERVER_URL}/tasks?` + params.toString()).then(
-      (r) => r.json()
-    );
-    if (res.success) setList(res.data.items);
+    const res = await api<{ items: Task[] }>(`/tasks?${params.toString()}`);
+    setList(res.items);
   }
   useEffect(() => {
     load();
@@ -56,39 +56,33 @@ export default function Tasks() {
       ? `${SERVER_URL}/tasks/${editing.id}`
       : `${SERVER_URL}/tasks`;
     const method = editing ? "PATCH" : "POST";
-    const res = await fetch(url, {
-      method,
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(body),
-    }).then((r) => r.json());
-    if (res.success) {
+    try {
+      await api<Task>(url.replace(SERVER_URL, ""), {
+        method,
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+      });
       message.success("保存成功");
       setOpen(false);
       load();
-    } else {
-      message.error(res.message);
-    }
+    } catch {}
   }
 
   async function toggleComplete(t: Task) {
-    const res = await fetch(`${SERVER_URL}/tasks/${t.id}`, {
+    const res = await api<Task>(`/tasks/${t.id}`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ completed: !t.completed }),
-    }).then((r) => r.json());
-    if (res.success) {
-      setList((prev) => prev.map((x) => (x.id === t.id ? res.data : x)));
-    }
+    });
+    setList((prev) => prev.map((x) => (x.id === t.id ? res : x)));
   }
 
   async function remove(id: string) {
-    const res = await fetch(`${SERVER_URL}/tasks/${id}`, {
-      method: "DELETE",
-    }).then((r) => r.json());
-    if (res.success) {
+    try {
+      await api<boolean>(`/tasks/${id}`, { method: "DELETE" });
       message.success("已删除");
       load();
-    }
+    } catch {}
   }
 
   const columns = useMemo(
@@ -106,7 +100,9 @@ export default function Tasks() {
         render: (_: any, t: Task) => (
           <Space>
             <a onClick={() => showEdit(t)}>编辑</a>
-            <a onClick={() => remove(t.id)}>删除</a>
+            <Popconfirm title="确定删除？" onConfirm={() => remove(t.id)}>
+              <a>删除</a>
+            </Popconfirm>
           </Space>
         ),
       },

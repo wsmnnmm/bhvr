@@ -9,8 +9,10 @@ import {
   Tag,
   Space,
   Select,
+  Popconfirm,
   message,
 } from "antd";
+import { api } from "../utils/request";
 
 const SERVER_URL = import.meta.env.VITE_SERVER_URL || "http://localhost:3000";
 
@@ -33,8 +35,10 @@ export default function Habits() {
   const [form] = Form.useForm();
 
   async function load() {
-    const res = await fetch(`${SERVER_URL}/habits`).then((r) => r.json());
-    if (res.success) setList(res.data.items);
+    const res = await api<{ items: Habit[]; total: number }>(
+      `/habits?page=1&limit=20`
+    );
+    setList(res.items);
   }
   useEffect(() => {
     load();
@@ -66,28 +70,24 @@ export default function Habits() {
       ? `${SERVER_URL}/habits/${editing.id}`
       : `${SERVER_URL}/habits`;
     const method = editing ? "PATCH" : "POST";
-    const res = await fetch(url, {
-      method,
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(body),
-    }).then((r) => r.json());
-    if (res.success) {
+    try {
+      await api<Habit>(url.replace(SERVER_URL, ""), {
+        method,
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+      });
       message.success("保存成功");
       setOpen(false);
       load();
-    } else {
-      message.error(res.message);
-    }
+    } catch {}
   }
 
   async function remove(id: string) {
-    const res = await fetch(`${SERVER_URL}/habits/${id}`, {
-      method: "DELETE",
-    }).then((r) => r.json());
-    if (res.success) {
+    try {
+      await api<boolean>(`/habits/${id}`, { method: "DELETE" });
       message.success("已删除");
       load();
-    }
+    } catch {}
   }
 
   const columns = useMemo(
@@ -105,7 +105,9 @@ export default function Habits() {
         render: (_: any, h: Habit) => (
           <Space>
             <a onClick={() => showEdit(h)}>编辑</a>
-            <a onClick={() => remove(h.id)}>删除</a>
+            <Popconfirm title="确定删除？" onConfirm={() => remove(h.id)}>
+              <a>删除</a>
+            </Popconfirm>
           </Space>
         ),
       },

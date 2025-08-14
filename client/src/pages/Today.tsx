@@ -1,7 +1,6 @@
-import { useEffect, useState } from "react";
-import { Card, List, Checkbox, Space, message } from "antd";
-
-const SERVER_URL = import.meta.env.VITE_SERVER_URL || "http://localhost:3000";
+import { useEffect, useMemo, useState } from "react";
+import { Card, List, Checkbox, Space, message, Empty, Skeleton } from "antd";
+import { api, toDateKey } from "../utils/request";
 
 type Task = import("shared").Task;
 type Habit = import("shared").Habit;
@@ -9,76 +8,90 @@ type Habit = import("shared").Habit;
 export default function Today() {
   const [habits, setHabits] = useState<Habit[]>([]);
   const [tasks, setTasks] = useState<Task[]>([]);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    fetch(`${SERVER_URL}/habits`)
-      .then((r) => r.json())
-      .then((res) => {
-        if (res.success) setHabits(res.data.items);
-      });
-    fetch(`${SERVER_URL}/tasks?scope=today&completed=false`)
-      .then((r) => r.json())
-      .then((res) => {
-        if (res.success) setTasks(res.data.items);
-      });
+    async function load() {
+      setLoading(true);
+      try {
+        const [hs, ts] = await Promise.all([
+          api<{ items: Habit[] }>("/habits?page=1&limit=100"),
+          api<{ items: Task[] }>(
+            "/tasks?scope=today&completed=false&page=1&limit=100"
+          ),
+        ]);
+        setHabits(hs.items);
+        setTasks(ts.items);
+      } finally {
+        setLoading(false);
+      }
+    }
+    load();
   }, []);
 
   async function toggleHabit(id: string) {
-    const today = new Date();
-    const key = `${today.getUTCFullYear()}-${String(
-      today.getUTCMonth() + 1
-    ).padStart(2, "0")}-${String(today.getUTCDate()).padStart(2, "0")}`;
-    const res = await fetch(`${SERVER_URL}/habits/${id}/checkin`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ date: key }),
-    }).then((r) => r.json());
-    if (res.success) {
-      message.success(res.data.checked ? "已打卡" : "已撤销");
-    }
+    const key = toDateKey(new Date());
+    const res = await api<{ streak: number; checked: boolean }>(
+      `/habits/${id}/checkin`,
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ date: key }),
+      }
+    );
+    message.success(res.checked ? "已打卡" : "已撤销");
   }
 
   async function toggleTask(t: Task) {
-    const res = await fetch(`${SERVER_URL}/tasks/${t.id}`, {
+    const res = await api<Task>(`/tasks/${t.id}`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ completed: !t.completed }),
-    }).then((r) => r.json());
-    if (res.success) {
-      setTasks((prev) => prev.map((x) => (x.id === t.id ? res.data : x)));
-    }
+    });
+    setTasks((prev) => prev.map((x) => (x.id === t.id ? res : x)));
   }
 
   return (
     <Space direction="vertical" style={{ width: "100%" }}>
       <Card title="今日习惯">
-        <List
-          dataSource={habits}
-          renderItem={(h) => (
-            <List.Item
-              actions={[
-                <a key="toggle" onClick={() => toggleHabit(h.id)}>
-                  打卡/撤销
-                </a>,
-              ]}
-            >
-              {" "}
-              {h.name}{" "}
-            </List.Item>
-          )}
-        />
+        {loading ? (
+          <Skeleton active />
+        ) : (
+          <List
+            locale={{
+              emptyText: <Empty description="今天没有需要打卡的习惯" />,
+            }}
+            dataSource={habits}
+            renderItem={(h) => (
+              <List.Item
+                actions={[
+                  <a key="toggle" onClick={() => toggleHabit(h.id)}>
+                    打卡/撤销
+                  </a>,
+                ]}
+              >
+                {h.name}
+              </List.Item>
+            )}
+          />
+        )}
       </Card>
       <Card title="今日任务">
-        <List
-          dataSource={tasks}
-          renderItem={(t) => (
-            <List.Item>
-              <Checkbox checked={t.completed} onChange={() => toggleTask(t)}>
-                {t.title}
-              </Checkbox>
-            </List.Item>
-          )}
-        />
+        {loading ? (
+          <Skeleton active />
+        ) : (
+          <List
+            locale={{ emptyText: <Empty description="暂无任务" /> }}
+            dataSource={tasks}
+            renderItem={(t) => (
+              <List.Item>
+                <Checkbox checked={t.completed} onChange={() => toggleTask(t)}>
+                  {t.title}
+                </Checkbox>
+              </List.Item>
+            )}
+          />
+        )}
       </Card>
     </Space>
   );
