@@ -1,9 +1,4 @@
-#root {
-  max-width: 1280px;
-  margin: 0 auto;
-  padding: 2rem;
-  text-align: center;
-}
+#root {}
 
 .logo {
   height: 6em;
@@ -33,9 +28,7 @@
   }
 }
 
-.card {
-  padding: 2em;
-}
+.card { padding: 2em; }
 
 .read-the-docs {
   color: #888;
@@ -47,11 +40,7 @@
   padding: 2rem;
 }
 
-.code {
-  text-align: start;
-  max-width: 500px;
-  margin: auto;
-}
+.code { text-align: start; max-width: 500px; margin: auto; }
 
 .button-container {
   display: flex;

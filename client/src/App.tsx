@@ -1,5 +1,11 @@
 import { useState } from "react";
-import { Form, Input, Button, Space } from "antd";
+import { Layout, Menu, Typography, Button, Space } from "antd";
+import {
+  CalendarOutlined,
+  HomeOutlined,
+  ScheduleOutlined,
+} from "@ant-design/icons";
+import { Link, Outlet, useLocation } from "react-router-dom";
 import beaver from "./assets/beaver.svg";
 import type { ApiResponse } from "shared";
 import "./App.css";
@@ -7,8 +13,8 @@ import "./App.css";
 const SERVER_URL = import.meta.env.VITE_SERVER_URL || "http://localhost:3000";
 
 function App() {
+  const location = useLocation();
   const [data, setData] = useState<ApiResponse | undefined>();
-  const [echo, setEcho] = useState<ApiResponse | undefined>();
 
   async function sendRequest() {
     try {
@@ -20,74 +26,59 @@ function App() {
     }
   }
 
-  async function submitEcho(values: { message: string }) {
-    try {
-      const req = await fetch(`${SERVER_URL}/echo`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ message: values.message }),
-      });
-      const res: ApiResponse = await req.json();
-      setEcho(res);
-    } catch (error) {
-      console.log(error);
-    }
-  }
-
   return (
-    <>
-      <div>
-        <a href="https://github.com/stevedylandev/bhvr" target="_blank">
+    <Layout style={{ minHeight: "100vh" }}>
+      <Layout.Sider breakpoint="md" collapsible>
+        <div
+          style={{
+            height: 48,
+            margin: 16,
+            display: "flex",
+            alignItems: "center",
+            gap: 8,
+          }}
+        >
           <img src={beaver} className="logo" alt="beaver logo" />
-        </a>
-      </div>
-      <h1>bhvr</h1>
-      <h2>Bun + Hono + Vite + React</h2>
-      <p>A typesafe fullstack monorepo</p>
-      <div className="card">
-        <div className="button-container">
-          <button onClick={sendRequest}>Call API</button>
-          <a className="docs-link" target="_blank" href="https://bhvr.dev">
-            Docs
-          </a>
+          <Typography.Text strong style={{ color: "#fff" }}>
+            HabitFlow
+          </Typography.Text>
         </div>
-        {data && (
-          <pre className="response">
-            <code>
-              Message: {data.message} <br />
-              Success: {data.success.toString()} <br />
-              Timestamp: {data.timestamp}
-            </code>
-          </pre>
-        )}
-
-        <Space direction="vertical" style={{ width: "100%", marginTop: 16 }}>
-          <Form layout="inline" onFinish={submitEcho}>
-            <Form.Item
-              name="message"
-              rules={[{ required: true, message: "Please input a message" }]}
-            >
-              <Input placeholder="Say something" allowClear />
-            </Form.Item>
-            <Form.Item>
-              <Button type="primary" htmlType="submit">
-                Echo
-              </Button>
-            </Form.Item>
-          </Form>
-
-          {echo && (
-            <pre className="response">
-              <code>
-                Echo Message: {echo.message} <br />
-                Success: {echo.success.toString()} <br />
-                Timestamp: {echo.timestamp}
-              </code>
-            </pre>
-          )}
-        </Space>
-      </div>
-    </>
+        <Menu
+          selectedKeys={[location.pathname]}
+          theme="dark"
+          items={[
+            {
+              key: "/",
+              icon: <HomeOutlined />,
+              label: <Link to="/">Today</Link>,
+            },
+            {
+              key: "/habits",
+              icon: <CalendarOutlined />,
+              label: <Link to="/habits">Habits</Link>,
+            },
+            {
+              key: "/tasks",
+              icon: <ScheduleOutlined />,
+              label: <Link to="/tasks">Tasks</Link>,
+            },
+          ]}
+        />
+      </Layout.Sider>
+      <Layout>
+        <Layout.Header style={{ background: "#fff", paddingInline: 16 }}>
+          <Space>
+            <Button onClick={sendRequest}>Ping API</Button>
+            <a className="docs-link" target="_blank" href="https://bhvr.dev">
+              Docs
+            </a>
+          </Space>
+        </Layout.Header>
+        <Layout.Content style={{ padding: 16 }}>
+          <Outlet />
+        </Layout.Content>
+      </Layout>
+    </Layout>
   );
 }
 
